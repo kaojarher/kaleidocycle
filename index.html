@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>紙藝魔方產生器 Kaleidocycle Maker</title>
+<style>
+  :root{
+    --bg:#f3efe7; --panel:#fffdf8; --ink:#25221d; --muted:#7a7469; --line:#ddd5c5;
+    --accent:#0f766e; --accent-ink:#fff; --valley:#e0245e; --mountain:#1e6fe0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+  #app{display:grid;grid-template-columns:350px 1fr;min-height:100vh}
+  #ui{background:var(--panel);border-right:1px solid var(--line);padding:22px 20px 40px;overflow-y:auto;max-height:100vh;position:sticky;top:0}
+  h1{font-size:20px;margin:0 0 2px;letter-spacing:.02em}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+  section{border-top:1px solid var(--line);padding:14px 0 6px}
+  h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600}
+  .drop{border:2px dashed #c9bfa9;border-radius:12px;padding:18px 12px;text-align:center;cursor:pointer;background:#faf6ec;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--accent);background:#eaf5f3}
+  .drop b{display:block;font-size:15px}
+  .drop span{font-size:12.5px;color:var(--muted)}
+  .row{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .row label{flex:0 0 74px;font-size:13px;color:#4a463e}
+  .row input[type=range]{flex:1;accent-color:var(--accent)}
+  .row output{flex:0 0 52px;text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--muted)}
+  select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .seg label{border:1px solid var(--line);border-radius:9px;padding:8px 8px;text-align:center;cursor:pointer;font-size:13px;background:#fff;line-height:1.3}
+  .seg input{display:none}
+  .seg input:checked + span{color:var(--accent);font-weight:600}
+  .seg label:has(input:checked){border-color:var(--accent);background:#eaf5f3}
+  .chk{display:flex;gap:8px;align-items:center;margin:7px 0;font-size:13.5px;cursor:pointer}
+  .chk input{accent-color:var(--accent);width:16px;height:16px}
+  button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 12px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;width:100%;padding:12px;font-size:15px}
+  button.primary:hover{filter:brightness(1.08)}
+  .btns{display:flex;gap:8px;margin-top:6px}
+  .btns button{flex:1}
+  .legend{display:grid;gap:5px;font-size:12.5px;color:#4a463e}
+  .legend i{display:inline-block;width:34px;height:0;border-top:2px dashed;vertical-align:middle;margin-right:8px}
+  .legend .v{border-color:var(--valley)} .legend .m{border-color:var(--mountain);border-top-style:dotted;border-top-width:3px} .legend .c{border-top:2px solid #000}
+  details{margin:6px 0 10px;font-size:13.5px}
+  details summary{cursor:pointer;font-weight:600;padding:4px 0}
+  ol{padding-left:20px;margin:6px 0} li{margin:4px 0}
+  .hint{font-size:12px;color:var(--muted);margin:4px 0 0}
+  #stage{padding:28px;display:flex;flex-direction:column;align-items:center;gap:24px}
+  .sheet{background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.08),0 14px 40px rgba(60,40,0,.14);width:min(100%,1100px);position:relative}
+  .sheet svg{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  .sheet svg.drag{cursor:grabbing}
+  .tip{font-size:12.5px;color:var(--muted);text-align:center}
+  .instr{display:none}
+  @media (max-width:900px){
+    #app{grid-template-columns:1fr}
+    #ui{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line)}
+    #stage{padding:14px}
+  }
+  /* ---------- print ---------- */
+  @media print{
+    body{background:#fff}
+    #ui,.tip,.noprint{display:none!important}
+    #app{display:block}
+    #stage{padding:0;gap:0;display:block}
+    .sheet{box-shadow:none;margin:0;width:var(--pw)!important;height:var(--ph)!important;aspect-ratio:auto!important;break-after:page;page-break-after:always;overflow:hidden}
+    .sheet svg{width:var(--pw);height:var(--ph)}
+    .instr.on{display:block;padding:14mm 16mm;font-size:11pt;line-height:1.5;color:#000}
+    .sheet:last-child{break-after:auto;page-break-after:auto}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+<style id="pageRule">@page{size:297mm 210mm;margin:0}</style>
+</head>
+<body>
+<div id="app">
+  <aside id="ui">
+    <h1>紙藝魔方產生器</h1>
+    <p class="sub">Kaleidocycle Maker ・ 上傳圖片 → 調整 → 列印 → 剪貼成會翻轉的魔方環</p>
+
+    <section>
+      <h2>1 · 圖片</h2>
+      <div class="drop" id="drop"><b>點擊選擇圖片,或拖放到這裡</b><span>JPG / PNG / WebP ・ 圖片只在你的瀏覽器中處理,不會上傳</span></div>
+      <input type="file" id="file" accept="image/*" hidden>
+      <div class="seg" style="margin-top:12px">
+        <label><input type="radio" name="mode" value="whole" checked><span>整張鋪滿<br><small>一張大圖橫跨整個展開圖</small></span></label>
+        <label><input type="radio" name="mode" value="each"><span>每個四面體各一份<br><small>6 列都是完整圖片</small></span></label>
+      </div>
+      <div class="row"><label>縮放</label><input type="range" id="zoom" min="0.3" max="5" step="0.01" value="1"><output id="zoomO">100%</output></div>
+      <div class="row"><label>旋轉</label><input type="range" id="rot" min="-180" max="180" step="1" value="0"><output id="rotO">0°</output></div>
+      <label class="chk"><input type="checkbox" id="flip"> 水平翻轉圖片</label>
+      <div class="btns"><button id="resetImg">重設位置</button><button id="sample">換範例圖</button></div>
+      <p class="hint">也可以直接在右側預覽上拖曳移動圖片、用滾輪縮放。</p>
+    </section>
+
+    <section>
+      <h2>2 · 尺寸與紙張</h2>
+      <select id="paper">
+        <option value="A4">A4 橫向(297 × 210 mm)</option>
+        <option value="A3">A3 橫向(420 × 297 mm)</option>
+        <option value="Letter">Letter 橫向(11 × 8.5 in)</option>
+      </select>
+      <label class="chk" style="margin-top:10px"><input type="checkbox" id="auto" checked> 自動放到最大(符合紙張)</label>
+      <div class="row"><label>三角形底邊</label><input type="range" id="size" min="15" max="70" step="0.5" value="30"><output id="sizeO">30 mm</output></div>
+      <div class="row"><label>厚度比例</label><input type="range" id="hr" min="0.4" max="0.9" step="0.01" value="0.6"><output id="hrO">0.60</output></div>
+      <p class="hint">厚度比例是四面體的「扁」或「胖」。0.6 是穩定好轉的預設值;數值越大越立體,內部空洞越小。</p>
+      <div id="sizeInfo" class="hint"></div>
+    </section>
+
+    <section>
+      <h2>3 · 顯示</h2>
+      <label class="chk"><input type="checkbox" id="showFold" checked> 摺線(壓線用)</label>
+      <label class="chk"><input type="checkbox" id="showMark" checked> 黏貼對應記號(A–F、R)</label>
+      <label class="chk"><input type="checkbox" id="showInstr" checked> 列印時多附一頁組裝說明</label>
+      <div class="legend" style="margin-top:8px">
+        <div><i class="c"></i>黑實線:剪下</div>
+        <div><i class="v"></i>紅虛線:谷摺(印刷面朝內)</div>
+        <div><i class="m"></i>藍點線:山摺(印刷面朝外)</div>
+      </div>
+    </section>
+
+    <section>
+      <button class="primary" id="print">🖨 列印 / 存成 PDF</button>
+      <p class="hint">列印設定:縮放請選「100% / 實際大小」,邊界選「無」,建議使用 160–200 g 的厚紙(薄紙也可以,但較難壓線)。</p>
+    </section>
+
+    <section>
+      <details>
+        <summary>組裝步驟</summary>
+        <ol id="steps"></ol>
+      </details>
+    </section>
+  </aside>
+
+  <main id="stage">
+    <div class="sheet" id="sheet1"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div class="sheet instr" id="instrSheet"></div>
+    <div class="tip">在預覽上拖曳可移動圖片 ・ 滾輪可縮放</div>
+  </main>
+</div>
+
+<script>
+(() => {
+  const PAPER = { A4:[297,210], A3:[420,297], Letter:[279.4,215.9] };
+  const STEPS = [
+    '以「實際大小(100%)」列印展開圖,建議用厚紙。',
+    '沿著<b>黑色實線</b>剪下整個圖形(含所有黏貼翼)。',
+    '用直尺與沒水的原子筆(或壓線筆)沿<b>所有虛線與點線</b>壓出摺痕。',
+    '<b>紅虛線(谷摺)</b>:印刷面朝內折;<b>藍點線(山摺)</b>:印刷面朝外折。先全部折過一遍,讓紙變柔軟。',
+    '每一列有 4 個三角形,把它捲成一個三角錐(四面體):<b>右端的黏貼翼</b>塗膠,黏在<b>左端斜邊的內側</b>(字母相同的記號對齊,A–F 共 6 個)。',
+    '<b>先不要封第一列(最下面那列)的黏貼翼。</b>請先把最上方的接合翼 R 塗膠,貼在第一列底邊的內側(同樣標示 R),再回頭封好第一列。這時 6 個四面體就連成一個環。',
+    '輕輕壓扁、轉動這個環,讓它從內側往外翻轉 —— 完成!黏膠乾了之後效果更好。',
+    '小提醒:黏貼處不要太緊,讓每個關節保留一點活動空間,魔方會轉得更順。'
+  ];
+  document.getElementById('steps').innerHTML = STEPS.map(s=>`<li>${s}</li>`).join('');
+
+  const $ = id => document.getElementById(id);
+  const S = {
+    img:null, url:'', nw:1, nh:1,
+    zoom:1, rot:0, ox:0, oy:0, flip:false, mode:'whole',
+    a:30, auto:true, hr:0.6, paper:'A4',
+    showFold:true, showMark:true, showInstr:true
+  };
+
+  /* ---------- geometry (y-up internally) ---------- */
+  function build(a, hr){
+    const h = hr*a, b2 = a*a/2 + h*h, ht = Math.sqrt(b2 - a*a/4);
+    const tris=[], mtn=[], vly=[], cut=[], tabs=[], marks=[];
+    for(let j=0;j<6;j++){
+      const ox=j*1.5*a, oy=j*ht;
+      const P=(x,y)=>[ox+x, oy+y];
+      const t=[
+        [P(0,0),P(a,0),P(a/2,ht)],
+        [P(a/2,ht),P(1.5*a,ht),P(a,0)],
+        [P(a,0),P(2*a,0),P(1.5*a,ht)],
+        [P(1.5*a,ht),P(2.5*a,ht),P(2*a,0)]
+      ];
+      t.forEach((pts,k)=>tris.push({row:j,k,pts}));
+      mtn.push([P(a/2,ht),P(a,0)],[P(a,0),P(1.5*a,ht)],[P(1.5*a,ht),P(2*a,0)]);
+      vly.push([P(1.5*a,ht),P(2.5*a,ht)]);         // hinge to next row (or ring tab on last row)
+      cut.push([P(0,0),P(a/2,ht)],                   // t1 left (seam)
+               [P(a/2,ht),P(1.5*a,ht)],              // t2 top
+               [P(a,0),P(2*a,0)]);                   // t3 bottom
+      if(j===0) cut.push([P(0,0),P(a,0)]);           // first t1 base
+      // seam glue tab on t4 right edge
+      const p1=P(2*a,0), p2=P(2.5*a,ht), L=Math.hypot(p2[0]-p1[0],p2[1]-p1[1]);
+      const u=[(p2[0]-p1[0])/L,(p2[1]-p1[1])/L], n=[u[1],-u[0]], tw=0.28*a;
+      const p3=[p2[0]+n[0]*tw-u[0]*tw*0.65, p2[1]+n[1]*tw-u[1]*tw*0.65];
+      const p4=[p1[0]+n[0]*tw+u[0]*tw*0.65, p1[1]+n[1]*tw+u[1]*tw*0.65];
+      tabs.push({pts:[p1,p2,p3,p4], base:[p1,p2], fold:'m', label:'ABCDEF'[j]});
+      mtn.push([p1,p2]); // tab fold
+      // matching mark inside t1 near left edge
+      const mid=P(a/4,ht/2), nin=[ht/Math.hypot(0.5*a,ht), -0.5*a/Math.hypot(0.5*a,ht)];
+      marks.push({x:mid[0]+nin[0]*0.17*a, y:mid[1]+nin[1]*0.17*a, t:'ABCDEF'[j]});
+      if(j===5){
+        const q1=P(1.5*a,ht), q2=P(2.5*a,ht), th=0.32*a, ins=0.16*a;
+        tabs.push({pts:[q1,q2,[q2[0]-ins,q2[1]+th],[q1[0]+ins,q1[1]+th]], base:[q1,q2], fold:'v', label:'R', ring:true});
+      }
+      if(j===0) marks.push({x:ox+a/2, y:oy+0.2*ht, t:'R'});
+    }
+    // bbox
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+    const eat=p=>{x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);};
+    tris.forEach(t=>t.pts.forEach(eat)); tabs.forEach(t=>t.pts.forEach(eat));
+    return {a,ht,tris,mtn,vly,cut,tabs,marks,bbox:[x0,y0,x1,y1]};
+  }
+
+  /* ---------- helpers ---------- */
+  const f = n => (Math.round(n*1000)/1000);
+  function layout(){
+    const [W,H]=PAPER[S.paper];
+    const unit = build(1,S.hr), bw=unit.bbox[2]-unit.bbox[0], bh=unit.bbox[3]-unit.bbox[1];
+    const m=8;
+    const maxA = Math.min((W-2*m)/bw,(H-2*m)/bh);
+    if(S.auto){ S.a = Math.floor(maxA*10)/10; $('size').value=S.a; }
+    const a=S.a, g=build(a,S.hr);
+    const cx=(g.bbox[0]+g.bbox[2])/2, cy=(g.bbox[1]+g.bbox[3])/2;
+    const T=p=>[f(p[0]-cx+W/2), f(-(p[1]-cy)+H/2)];
+    return {W,H,g,T,maxA,fits:a<=maxA+1e-6};
+  }
+
+  let L=null;
+  function render(){
+    L=layout(); const {W,H,g,T}=L;
+    $('sizeO').textContent=S.a.toFixed(1)+' mm'; $('hrO').textContent=S.hr.toFixed(2);
+    $('size').disabled=S.auto;
+    $('sizeInfo').innerHTML = `實際尺寸:三角形底邊 ${S.a.toFixed(1)} mm,斜邊 ${(Math.sqrt(S.a*S.a/2+(S.hr*S.a)**2)).toFixed(1)} mm。`
+      + (L.fits?'':' <b style="color:#b3261e">⚠ 超出紙張範圍,請縮小或改用較大紙張。</b>');
+    const path = pts => 'M'+pts.map(p=>T(p).join(' ')).join('L')+'Z';
+    const seg = s => `M${T(s[0]).join(' ')}L${T(s[1]).join(' ')}`;
+    const triPath = g.tris.map(t=>path(t.pts)).join('');
+    const rowTris = j=>g.tris.filter(t=>t.row===j);
+    // row bbox in page coords
+    const rowBox=j=>{let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;rowTris(j).forEach(t=>t.pts.forEach(p=>{const q=T(p);x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);y0=Math.min(y0,q[1]);y1=Math.max(y1,q[1]);}));return [x0,y0,x1-x0,y1-y0];};
+    const allBox=(()=>{let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;g.tris.forEach(t=>t.pts.forEach(p=>{const q=T(p);x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);y0=Math.min(y0,q[1]);y1=Math.max(y1,q[1]);}));return [x0,y0,x1-x0,y1-y0];})();
+    L.regions = S.mode==='whole' ? [allBox] : [0,1,2,3,4,5].map(rowBox);
+
+    let s=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="svg" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm">`;
+    s+=`<defs>`;
+    if(S.url) s+=`<image id="im" href="${S.url}" width="${S.nw}" height="${S.nh}"/>`;
+    if(S.mode==='whole') s+=`<clipPath id="c0"><path d="${triPath}"/></clipPath>`;
+    else for(let j=0;j<6;j++) s+=`<clipPath id="c${j}"><path d="${rowTris(j).map(t=>path(t.pts)).join('')}"/></clipPath>`;
+    s+=`</defs><rect width="${W}" height="${H}" fill="#fff"/>`;
+    // tabs
+    g.tabs.forEach(t=>{ s+=`<path d="${path(t.pts)}" fill="#efe8d8" stroke="none"/>`; });
+    // faces base
+    s+=`<path d="${triPath}" fill="#e6e1d6"/>`;
+    // image
+    if(S.url){
+      L.regions.forEach((r,i)=>{ s+=`<g clip-path="url(#c${i})"><use class="iu" data-r="${i}" href="#im" xlink:href="#im"/></g>`; });
+    }
+    // fold lines
+    if(S.showFold){
+      const vl=g.vly.map(seg).join(''), ml=g.mtn.map(seg).join('');
+      s+=`<g fill="none" stroke-linecap="butt">
+        <path d="${vl}" stroke="#fff" stroke-width="0.55" opacity=".85"/><path d="${ml}" stroke="#fff" stroke-width="0.55" opacity=".85"/>
+        <path d="${vl}" stroke="#e0245e" stroke-width="0.28" stroke-dasharray="2 1"/>
+        <path d="${ml}" stroke="#1e6fe0" stroke-width="0.34" stroke-dasharray="0.4 1.1" stroke-linecap="round"/></g>`;
+    }
+    // cut lines : boundary edges and tab outlines
+    let cutD=g.cut.map(seg).join('');
+    g.tabs.forEach(t=>{ const p=t.pts.map(q=>T(q)); cutD+=`M${p[1].join(' ')}L${p[2].join(' ')}L${p[3].join(' ')}L${p[0].join(' ')}`; });
+    s+=`<path d="${cutD}" fill="none" stroke="#000" stroke-width="0.35" stroke-linejoin="round" stroke-linecap="round"/>`;
+    // labels
+    const fs=Math.max(2.4,S.a*0.1);
+    const lab=(x,y,t,rot=0)=>`<text x="${x}" y="${y}" font-size="${fs}" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-weight="700" fill="#fff" stroke="#000" stroke-width="${fs*0.18}" paint-order="stroke" transform="rotate(${rot} ${x} ${y})">${t}</text>`;
+    if(S.showMark){
+      g.marks.forEach(m=>{const q=T([m.x,m.y]); s+=lab(q[0],q[1],m.t);});
+      g.tabs.forEach(t=>{
+        const cxp=t.pts.reduce((a,p)=>a+p[0],0)/4, cyp=t.pts.reduce((a,p)=>a+p[1],0)/4, q=T([cxp,cyp]);
+        s+=`<text x="${q[0]}" y="${q[1]}" font-size="${fs*0.95}" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-weight="700" fill="#6b6455">${t.label}</text>`;
+      });
+    }
+    s+=`</svg>`;
+    $('sheet1').innerHTML=s;
+    $('sheet1').style.aspectRatio=`${W} / ${H}`;
+    document.documentElement.style.setProperty('--pw',W+'mm');
+    document.documentElement.style.setProperty('--ph',H+'mm');
+    $('pageRule').textContent=`@page{size:${W}mm ${H}mm;margin:0}`;
+    updateImg(); bindSvg(); buildInstr();
+  }
+
+  function updateImg(){
+    if(!S.url||!L) return;
+    const ths=S.rot*Math.PI/180;
+    document.querySelectorAll('#svg .iu').forEach(u=>{
+      const [rx,ry,rw,rh]=L.regions[+u.dataset.r];
+      const c=Math.abs(Math.cos(ths)), si=Math.abs(Math.sin(ths));
+      const wr=rw*c+rh*si, hr=rw*si+rh*c;
+      const cover=Math.max(wr/S.nw, hr/S.nh);
+      const sc=cover*S.zoom, sx=S.flip?-sc:sc;
+      const cx=rx+rw/2+S.ox, cy=ry+rh/2+S.oy;
+      u.setAttribute('transform',`translate(${f(cx)} ${f(cy)}) rotate(${S.rot}) scale(${sx} ${sc}) translate(${-S.nw/2} ${-S.nh/2})`);
+    });
+  }
+
+  /* ---------- svg interaction ---------- */
+  function bindSvg(){
+    const svg=$('svg'); let drag=null;
+    svg.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,ox:S.ox,oy:S.oy}; svg.setPointerCapture(e.pointerId); svg.classList.add('drag'); });
+    svg.addEventListener('pointermove',e=>{
+      if(!drag) return; const k=L.W/svg.getBoundingClientRect().width;
+      S.ox=drag.ox+(e.clientX-drag.x)*k; S.oy=drag.oy+(e.clientY-drag.y)*k; updateImg();
+    });
+    const end=()=>{drag=null;svg.classList.remove('drag');};
+    svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
+    svg.addEventListener('wheel',e=>{
+      e.preventDefault(); S.zoom=Math.min(5,Math.max(0.3,S.zoom*Math.exp(-e.deltaY*0.0012)));
+      $('zoom').value=S.zoom; $('zoomO').textContent=Math.round(S.zoom*100)+'%'; updateImg();
+    },{passive:false});
+  }
+
+  /* ---------- instruction page (print) ---------- */
+  function buildInstr(){
+    const el=$('instrSheet');
+    el.className='sheet instr'+(S.showInstr?' on':'');
+    el.innerHTML=`<h2 style="font-size:18pt;margin:0 0 4mm;letter-spacing:0;text-transform:none;color:#000">紙藝魔方組裝說明</h2>
+      <p style="margin:0 0 4mm">共 6 個四面體串成一個環。三角形底邊 ${S.a.toFixed(1)} mm。</p>
+      <ol style="font-size:11pt;padding-left:6mm">${STEPS.map(x=>`<li style="margin:2mm 0">${x}</li>`).join('')}</ol>
+      <p style="margin-top:6mm;font-size:10pt">線條說明:黑實線=剪下 ・ 紅虛線=谷摺(印刷面朝內) ・ 藍點線=山摺(印刷面朝外)</p>`;
+  }
+
+  /* ---------- image loading ---------- */
+  function setImage(src){
+    const im=new Image();
+    im.onload=()=>{
+      const MAX=2400, k=Math.min(1,MAX/Math.max(im.naturalWidth,im.naturalHeight));
+      const c=document.createElement('canvas'); c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k);
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      S.url=c.toDataURL('image/jpeg',0.92); S.nw=c.width; S.nh=c.height; S.img=im;
+      resetImg(false); render();
+    };
+    im.src=src;
+  }
+  function resetImg(doRender=true){
+    S.zoom=1;S.rot=0;S.ox=0;S.oy=0;S.flip=false;
+    $('zoom').value=1;$('zoomO').textContent='100%';$('rot').value=0;$('rotO').textContent='0°';$('flip').checked=false;
+    if(doRender) updateImg();
+  }
+  let sampleNo=0;
+  function makeSample(){
+    const c=document.createElement('canvas'); c.width=2000; c.height=1000; const x=c.getContext('2d');
+    const pal=[['#ff5f6d','#ffc371','#2b1055'],['#00c9ff','#92fe9d','#0f2027'],['#f7971e','#ffd200','#4b134f'],['#7f00ff','#e100ff','#0f0c29']][sampleNo++%4];
+    const g=x.createLinearGradient(0,0,2000,1000); g.addColorStop(0,pal[0]); g.addColorStop(.55,pal[1]); g.addColorStop(1,pal[2]);
+    x.fillStyle=g; x.fillRect(0,0,2000,1000);
+    let seed=sampleNo*97+13; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+    for(let i=0;i<46;i++){
+      x.globalAlpha=.16+rnd()*.3; x.fillStyle=['#fff','#000',pal[0],pal[1],pal[2]][i%5];
+      x.beginPath(); const cx=rnd()*2000, cy=rnd()*1000, r=40+rnd()*210;
+      if(i%3===0){ x.arc(cx,cy,r,0,7); } else if(i%3===1){ x.moveTo(cx,cy-r); x.lineTo(cx+r,cy+r*.8); x.lineTo(cx-r,cy+r*.8); } else { x.rect(cx-r/2,cy-r/2,r,r); }
+      x.fill();
+    }
+    x.globalAlpha=1; x.lineWidth=6; x.strokeStyle='rgba(255,255,255,.55)';
+    for(let i=0;i<9;i++){x.beginPath();x.arc(1000,500,60+i*70,0,7);x.stroke();}
+    return c.toDataURL('image/jpeg',0.9);
+  }
+
+  /* ---------- wiring ---------- */
+  const drop=$('drop'), file=$('file');
+  drop.onclick=()=>file.click();
+  file.onchange=()=>{ if(file.files[0]) readFile(file.files[0]); };
+  function readFile(fl){ if(!fl.type.startsWith('image/')) return; const r=new FileReader(); r.onload=()=>setImage(r.result); r.readAsDataURL(fl); }
+  ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+  drop.addEventListener('drop',e=>{ if(e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); });
+  window.addEventListener('dragover',e=>e.preventDefault());
+  window.addEventListener('drop',e=>{ e.preventDefault(); if(e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); });
+  window.addEventListener('paste',e=>{ const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/')); if(it) readFile(it.getAsFile()); });
+
+  $('zoom').oninput=e=>{S.zoom=+e.target.value;$('zoomO').textContent=Math.round(S.zoom*100)+'%';updateImg();};
+  $('rot').oninput=e=>{S.rot=+e.target.value;$('rotO').textContent=S.rot+'°';updateImg();};
+  $('flip').onchange=e=>{S.flip=e.target.checked;updateImg();};
+  $('resetImg').onclick=()=>resetImg();
+  $('sample').onclick=()=>setImage(makeSample());
+  document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=e=>{S.mode=e.target.value;S.ox=S.oy=0;render();});
+  $('paper').onchange=e=>{S.paper=e.target.value;render();};
+  $('auto').onchange=e=>{S.auto=e.target.checked;render();};
+  $('size').oninput=e=>{S.a=+e.target.value;render();};
+  $('hr').oninput=e=>{S.hr=+e.target.value;render();};
+  $('showFold').onchange=e=>{S.showFold=e.target.checked;render();};
+  $('showMark').onchange=e=>{S.showMark=e.target.checked;render();};
+  $('showInstr').onchange=e=>{S.showInstr=e.target.checked;buildInstr();};
+  $('print').onclick=()=>window.print();
+
+  setImage(makeSample());
+})();
+</script>
+</body>
+</html>
